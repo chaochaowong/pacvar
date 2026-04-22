@@ -145,7 +145,12 @@
                     },
                     "tabix/bgzip": {
                         "branch": "master",
-                        "git_sha": "f2cfcf9d3f6a2d123e6c44aefa788aa232204a7a",
+                        "git_sha": "91a902fb32d6717da38a9694eb4ad3fade53a8db",
+                        "installed_by": ["modules"]
+                    },
+                    "tabix/bgziptabix": {
+                        "branch": "master",
+                        "git_sha": "91a902fb32d6717da38a9694eb4ad3fade53a8db",
                         "installed_by": ["modules"]
                     },
                     "trgt/genotype": {

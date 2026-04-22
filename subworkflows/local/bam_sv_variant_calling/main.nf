@@ -40,7 +40,6 @@ workflow BAM_SV_VARIANT_CALLING {
 
         ch_versions = ch_versions.mix(PBSV_DISCOVER.out.versions)
         ch_versions = ch_versions.mix(PBSV_CALL.out.versions)
-        ch_versions = ch_versions.mix(TABIX_BGZIP.out.versions)
         ch_versions = ch_versions.mix(BCFTOOLS_INDEX.out.versions)
     }
 
@@ -76,6 +75,6 @@ workflow BAM_SV_VARIANT_CALLING {
     }
 
     emit:
-    vcf_ch
+    vcf_ch // [meta, vcf.gz, tbi]
     versions   = ch_versions
 }
