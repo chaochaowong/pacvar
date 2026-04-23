@@ -224,7 +224,6 @@ workflow PACVAR {
                 }
             }
 
-            // Run HiFiCNV .map { meta, bam, bai, vcf -> [ meta + [file_name: bam.baseName], bam, bai, vcf ] },
             BAM_CNV_VARIANT_CALLING(
                 cnv_input_bam_bai_maf_ch.map { meta, bam, bai, vcf -> [ meta + [file_name: bam.baseName], bam, bai, vcf ] },
                 fasta,
