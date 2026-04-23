@@ -186,15 +186,11 @@ workflow PACVAR {
                 SAMTOOLS_INDEX_HIPHASE_SNP(HIPHASE_SNP.out.bam)
                 // zip and index VCF
                 TABIX_BGZIPTABIX_HIPHASE_SNP(
-                    HIPHASE_SNP.out.vcf.map {meta, vcf -> [meta + [file_name: vcf.baseName], vcf] }
+                    HIPHASE_SNP.out.vcf
+                    //.map { meta, vcf -> [ meta + [file_name: vcf.baseName], vcf ] }
                     )
-
                 // channel for pbcpgtools_alignedbamtocpgscores and hificnv
-                bam_bai_snp_phased_ch = HIPHASE_SNP.out.bam.join(SAMTOOLS_INDEX_HIPHASE_SNP.out.bai)
-                // vcf channel for ensemblvep,  annotsv, hificnv, and etc.
-                // vcf_snp_phased_ch = HIPHASE_SNP.out.vcf
-                ch_vcf_tbi_snp_phased = TABIX_BGZIPTABIX_HIPHASE_SNP.out.gz_index // [meta, *.gz, *.tbi]
-                ch_vcf_snp_phased     = ch_vcf_tbi_snp_phased.map { meta, vcf, tbi -> [meta, vcf] }
+                bam_bai_snp_phased_ch = HIPHASE_SNP.out.bam.join(SAMTOOLS_INDEX_HIPHASE_SNP.out.bai)                ch_vcf_tbi_snp_phased = TABIX_BGZIPTABIX_HIPHASE_SNP.out.gz_index // [meta, *.gz, *.tbi]
             }
 
             // vep annotation for SNVs
@@ -202,7 +198,7 @@ workflow PACVAR {
                 // construct ch_vcf_to_vep [meta, vcf]
                 ch_vcf_to_vep = params.skip_phase
                     ? orderd_bam_bai_vcf_tbi_snp.vcf_tbi.map { meta, vcf, tbi -> [ meta, vcf ] }
-                    : ch_vcf_snp_phased
+                    : HIPHASE_SNP.out.vcf
 
                 VCF_ANNOTATE_ENSEMBLVEP (
                     ch_vcf_to_vep.map { meta, vcf -> [meta + [file_name: vcf.baseName], vcf, []] }, // [meta, vcf, [custom files]]
@@ -223,12 +219,11 @@ workflow PACVAR {
             // define bam_bam_maf_ch: tuple val(meta), path(bam), path(bai), path(vcf)
             if (!params.skip_snp && !params.skip_phase) {
                 // Use phased BAM, BAI, and VCF from HIPHASE_SNP
-                cnv_input_bam_bai_maf_ch = bam_bai_snp_phased_ch.join(ch_vcf_snp_phased)
+                cnv_input_bam_bai_maf_ch = bam_bai_snp_phased_ch.join(HIPHASE_SNP.out.vcf)
             } else if (!params.skip_snp && params.skip_phase) {
                 // Use unphased BAM, BAI, and VCF from SNP calling
-                cnv_input_bam_bai_maf_ch = bam_bai_vcf_snp_ch.map { meta, bam, bai, vcf, tbi ->
-                    [meta, bam, bai, vcf]
-                    }
+                cnv_input_bam_bai_maf_ch = bam_bai_vcf_snp_ch
+                    .map { meta, bam, bai, vcf, tbi -> [ meta, bam, bai, vcf ] }
             } else {
                 // Skip SNP calling - use original BAM and BAI with empty VCF
                 cnv_input_bam_bai_maf_ch = bam_bai_ch.map { meta, bam, bai ->
@@ -236,9 +231,9 @@ workflow PACVAR {
                 }
             }
 
-            // Run HiFiCNV
+            // Run HiFiCNV .map { meta, bam, bai, vcf -> [ meta + [file_name: bam.baseName], bam, bai, vcf ] },
             BAM_CNV_VARIANT_CALLING(
-                cnv_input_bam_bai_maf_ch,
+                cnv_input_bam_bai_maf_ch.map { meta, bam, bai, vcf -> [ meta + [file_name: bam.baseName], bam, bai, vcf ] },
                 fasta,
                 expected_cn,
                 cnv_excluded_regions
