@@ -39,8 +39,6 @@ include { HIPHASE as HIPHASE_SV                        } from '../modules/nf-cor
 include { PBCPGTOOLS_ALIGNEDBAMTOCPGSCORES             } from '../modules/nf-core/pbcpgtools/alignedbamtocpgscores/main'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_HIPHASE_SNP } from '../modules/nf-core/samtools/index/main'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_HIPHASE_SV  } from '../modules/nf-core/samtools/index/main'
-include { TABIX_BGZIPTABIX  as TABIX_BGZIPTABIX_HIPHASE_SNP  } from '../modules/nf-core/tabix/bgziptabix/main'
-include { TABIX_BGZIPTABIX  as TABIX_BGZIPTABIX_HIPHASE_SV   } from '../modules/nf-core/tabix/bgziptabix/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,13 +182,8 @@ workflow PACVAR {
 
                 // Index the phased BAM from HIPHASE_SNP
                 SAMTOOLS_INDEX_HIPHASE_SNP(HIPHASE_SNP.out.bam)
-                // zip and index VCF
-                TABIX_BGZIPTABIX_HIPHASE_SNP(
-                    HIPHASE_SNP.out.vcf
-                    //.map { meta, vcf -> [ meta + [file_name: vcf.baseName], vcf ] }
-                    )
-                // channel for pbcpgtools_alignedbamtocpgscores and hificnv
-                bam_bai_snp_phased_ch = HIPHASE_SNP.out.bam.join(SAMTOOLS_INDEX_HIPHASE_SNP.out.bai)                ch_vcf_tbi_snp_phased = TABIX_BGZIPTABIX_HIPHASE_SNP.out.gz_index // [meta, *.gz, *.tbi]
+                bam_bai_snp_phased_ch = HIPHASE_SNP.out.bam.join(SAMTOOLS_INDEX_HIPHASE_SNP.out.bai)          
+                vcf_snp_phased_ch = HIPHASE_SNP.out.vcf // [meta, vcf]
             }
 
             // vep annotation for SNVs
@@ -198,7 +191,7 @@ workflow PACVAR {
                 // construct ch_vcf_to_vep [meta, vcf]
                 ch_vcf_to_vep = params.skip_phase
                     ? orderd_bam_bai_vcf_tbi_snp.vcf_tbi.map { meta, vcf, tbi -> [ meta, vcf ] }
-                    : HIPHASE_SNP.out.vcf
+                    : vcf_snp_phased_ch
 
                 VCF_ANNOTATE_ENSEMBLVEP (
                     ch_vcf_to_vep.map { meta, vcf -> [meta + [file_name: vcf.baseName], vcf, []] }, // [meta, vcf, [custom files]]
@@ -219,7 +212,7 @@ workflow PACVAR {
             // define bam_bam_maf_ch: tuple val(meta), path(bam), path(bai), path(vcf)
             if (!params.skip_snp && !params.skip_phase) {
                 // Use phased BAM, BAI, and VCF from HIPHASE_SNP
-                cnv_input_bam_bai_maf_ch = bam_bai_snp_phased_ch.join(HIPHASE_SNP.out.vcf)
+                cnv_input_bam_bai_maf_ch = bam_bai_snp_phased_ch.join(vcf_snp_phased_ch)
             } else if (!params.skip_snp && params.skip_phase) {
                 // Use unphased BAM, BAI, and VCF from SNP calling
                 cnv_input_bam_bai_maf_ch = bam_bai_vcf_snp_ch
@@ -291,11 +284,7 @@ workflow PACVAR {
 
                 // Index the phased BAM from HIPHASE_SV
                 SAMTOOLS_INDEX_HIPHASE_SV(HIPHASE_SV.out.bam)
-                // ch_versions = ch_versions.mix(SAMTOOLS_INDEX_HIPHASE_SV.out.versions)
-                TABIX_BGZIPTABIX_HIPHASE_SV(
-                    HIPHASE_SV.out.vcf.map { meta, vcf -> [ meta + [file_name: vcf.baseName], vcf ] }
-                    )
-                ch_vcf_tbi_sv_phased = TABIX_BGZIPTABIX_HIPHASE_SV.out.gz_index  // [meta, *.gz, *.tbi]
+                vcf_sv_phased_ch = HIPHASE_SV.out.vcf
             }
         }
 
